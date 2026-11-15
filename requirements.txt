@@ -1,0 +1,11 @@
+tensorflow>=2.16
+numpy
+pillow
+opencv-python-headless
+fastapi
+uvicorn[standard]
+python-multipart
+jinja2
+streamlit
+plotly
+pandas

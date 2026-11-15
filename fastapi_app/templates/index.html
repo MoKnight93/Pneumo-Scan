@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PneumoScan — AI Chest X-Ray Analysis</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,500;0,600;1,400&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    :root {
+      --blue:       #1a6fdb;
+      --blue-dark:  #1358b0;
+      --blue-light: #e8f1fd;
+      --blue-mid:   #c2d9f8;
+      --green:      #12a97a;
+      --green-light:#e6f7f2;
+      --red:        #e03e52;
+      --red-light:  #fde8eb;
+      --text:       #0f1f3d;
+      --text-mid:   #3d5278;
+      --text-soft:  #7a90b5;
+      --border:     #dde6f5;
+      --bg:         #f4f8ff;
+      --white:      #ffffff;
+      --shadow-sm:  0 2px 8px rgba(26,111,219,0.08);
+      --shadow-md:  0 6px 24px rgba(26,111,219,0.12);
+      --shadow-lg:  0 16px 48px rgba(26,111,219,0.15);
+      --r:          12px;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    /* ── NAV ── */
+    nav {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 100;
+      padding: 0 2rem;
+    }
+    .nav-inner {
+      max-width: 1080px;
+      margin: 0 auto;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--blue);
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .logo-icon {
+      width: 30px; height: 30px;
+      background: var(--blue);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .logo-icon svg { width: 16px; height: 16px; fill: white; }
+    nav ul { list-style: none; display: flex; gap: 0.25rem; }
+    nav a {
+      text-decoration: none;
+      color: var(--text-mid);
+      font-size: 0.875rem;
+      font-weight: 500;
+      padding: 0.4rem 0.85rem;
+      border-radius: 8px;
+      transition: background 0.15s, color 0.15s;
+    }
+    nav a:hover { background: var(--blue-light); color: var(--blue); }
+
+    /* ── LAYOUT WRAPPER ── */
+    .page { max-width: 1080px; margin: 0 auto; padding: 0 2rem; }
+
+    /* ── HERO ── */
+    .hero {
+      padding: 5rem 2rem 3.5rem;
+      text-align: center;
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+    .hero-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--blue-light);
+      color: var(--blue);
+      border: 1px solid var(--blue-mid);
+      border-radius: 100px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.3rem 0.9rem;
+      margin-bottom: 1.5rem;
+    }
+    .hero-chip::before { content: ''; width: 7px; height: 7px; background: var(--blue); border-radius: 50%; }
+    .hero h1 {
+      font-family: 'Lora', serif;
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 600;
+      line-height: 1.2;
+      color: var(--text);
+      letter-spacing: -0.5px;
+      margin-bottom: 1rem;
+    }
+    .hero h1 span { color: var(--blue); }
+    .hero p {
+      max-width: 520px;
+      margin: 0 auto 2.5rem;
+      color: var(--text-mid);
+      font-size: 1rem;
+    }
+
+    /* ── SCANNER CARD ── */
+    #scanner { padding: 0 2rem 4rem; }
+    .scanner-wrap { max-width: 1080px; margin: 0 auto; }
+
+    .scanner-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2rem;
+      box-shadow: var(--shadow-md);
+    }
+
+    .scanner-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      align-items: start;
+    }
+
+    /* Upload zone */
+    .upload-zone {
+      border: 2px dashed var(--blue-mid);
+      border-radius: var(--r);
+      background: var(--blue-light);
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+      min-height: 220px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .upload-zone:hover, .upload-zone.drag { border-color: var(--blue); background: #ddeafa; }
+    .upload-zone input[type="file"] {
+      position: absolute; inset: 0;
+      opacity: 0; cursor: pointer;
+      width: 100%; height: 100%;
+    }
+    .upload-icon {
+      width: 52px; height: 52px;
+      background: var(--white);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 1rem;
+      box-shadow: var(--shadow-sm);
+    }
+    .upload-icon svg { width: 24px; height: 24px; stroke: var(--blue); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .upload-zone h3 { font-size: 0.95rem; font-weight: 700; color: var(--text); margin-bottom: 0.35rem; }
+    .upload-zone p { font-size: 0.82rem; color: var(--text-soft); }
+    .upload-zone p span { color: var(--blue); font-weight: 600; }
+
+    /* X-ray preview */
+    .xray-frame {
+      border-radius: var(--r);
+      overflow: hidden;
+      background: #0a0f1e;
+      border: 1px solid var(--border);
+      aspect-ratio: 1 / 1;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .xray-frame img {
+      width: 100%; height: 100%;
+      object-fit: contain;
+      filter: contrast(1.08) brightness(0.97);
+    }
+    .xray-placeholder {
+      text-align: center;
+      color: #3a4a6a;
+    }
+    .xray-placeholder svg { width: 48px; height: 48px; stroke: #2a3a5a; fill: none; stroke-width: 1.2; margin-bottom: 0.75rem; }
+    .xray-placeholder p { font-size: 0.8rem; }
+
+    /* Right panel */
+    .right-panel { display: flex; flex-direction: column; gap: 1rem; }
+
+    .panel-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-soft);
+      margin-bottom: 0.1rem;
+    }
+
+    /* Result */
+    .result-card {
+      background: var(--blue-light);
+      border: 1px solid var(--blue-mid);
+      border-radius: var(--r);
+      padding: 1.25rem;
+      display: none;
+    }
+    .result-card.show { display: block; }
+    .result-card.pneumonia { background: var(--red-light); border-color: #f5b8c0; }
+    .result-card.normal   { background: var(--green-light); border-color: #9de0cc; }
+
+    .result-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-soft); margin-bottom: 0.4rem; }
+    .result-diagnosis {
+      font-family: 'Lora', serif;
+      font-size: 1.9rem;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+    }
+    .result-card.normal .result-diagnosis   { color: var(--green); }
+    .result-card.pneumonia .result-diagnosis { color: var(--red); }
+
+    /* Confidence bar */
+    .conf-wrap { margin-top: 1rem; }
+    .conf-top { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-soft); margin-bottom: 0.35rem; }
+    .conf-top strong { color: var(--text); }
+    .conf-track { height: 6px; background: var(--border); border-radius: 100px; overflow: hidden; }
+    .conf-bar {
+      height: 100%; border-radius: 100px;
+      background: linear-gradient(90deg, var(--blue-dark), var(--blue));
+      width: 0%; transition: width 1s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .result-card.normal .conf-bar    { background: linear-gradient(90deg, #0d8c64, var(--green)); }
+    .result-card.pneumonia .conf-bar { background: linear-gradient(90deg, #b82235, var(--red)); }
+
+    /* Probability chips */
+    .prob-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .prob-chip {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.9rem;
+      text-align: center;
+    }
+    .prob-chip .p-val { font-family: 'Lora', serif; font-size: 1.5rem; font-weight: 600; }
+    .prob-chip .p-lbl { font-size: 0.75rem; color: var(--text-soft); margin-top: 0.1rem; }
+    .prob-chip.nm .p-val { color: var(--green); }
+    .prob-chip.pn .p-val { color: var(--red); }
+
+    /* Advice */
+    .advice-box {
+      border-radius: 10px;
+      padding: 0.9rem 1rem;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      display: none;
+      border: 1px solid;
+    }
+    .advice-box.show { display: block; }
+    .advice-box.normal    { background: var(--green-light); border-color: #9de0cc; color: #0d5e43; }
+    .advice-box.pneumonia { background: var(--red-light);   border-color: #f5b8c0; color: #8c1a27; }
+
+    /* Scan button */
+    .btn-scan {
+      width: 100%;
+      padding: 0.85rem;
+      background: var(--blue);
+      color: white;
+      border: none;
+      border-radius: var(--r);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 4px 16px rgba(26,111,219,0.3);
+      display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+    }
+    .btn-scan:hover:not(:disabled) { background: var(--blue-dark); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(26,111,219,0.35); }
+    .btn-scan:active { transform: translateY(0); }
+    .btn-scan:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .loader {
+      display: none; align-items: center; justify-content: center;
+      gap: 0.5rem; color: var(--text-soft); font-size: 0.85rem; padding: 0.5rem;
+    }
+    .loader.show { display: flex; }
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    .error-msg {
+      display: none; padding: 0.8rem 1rem;
+      background: var(--red-light); border: 1px solid #f5b8c0;
+      border-radius: 10px; color: var(--red); font-size: 0.85rem;
+    }
+    .error-msg.show { display: block; }
+
+    /* ── SECTION STYLES ── */
+    section.info-section { padding: 4rem 2rem; }
+    .section-inner { max-width: 1080px; margin: 0 auto; }
+
+    .section-eyebrow {
+      font-size: 0.75rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1.5px;
+      color: var(--blue); margin-bottom: 0.6rem;
+    }
+    .section-heading {
+      font-family: 'Lora', serif;
+      font-size: clamp(1.5rem, 3vw, 2.1rem);
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.3px;
+      margin-bottom: 0.75rem;
+    }
+    .section-sub { color: var(--text-mid); max-width: 520px; margin-bottom: 2.5rem; }
+
+    /* Stats row */
+    .stats-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 1rem; margin-bottom: 2.5rem; }
+    .stat-box {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 1.4rem 1.2rem;
+      box-shadow: var(--shadow-sm);
+    }
+    .stat-box .s-num {
+      font-family: 'Lora', serif;
+      font-size: 2rem; font-weight: 600;
+      color: var(--blue); letter-spacing: -1px;
+    }
+    .stat-box .s-unit { font-size: 1rem; color: var(--text-soft); }
+    .stat-box .s-desc { font-size: 0.82rem; color: var(--text-soft); margin-top: 0.3rem; line-height: 1.5; }
+
+    /* Info cards */
+    .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2.5rem; }
+    .info-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 1.5rem;
+      box-shadow: var(--shadow-sm);
+    }
+    .info-card-head {
+      display: flex; align-items: center; gap: 0.6rem;
+      margin-bottom: 1rem;
+    }
+    .card-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .info-card h3 { font-size: 0.95rem; font-weight: 700; color: var(--text); }
+    .info-card ul { list-style: none; display: flex; flex-direction: column; gap: 0.45rem; }
+    .info-card ul li {
+      font-size: 0.85rem; color: var(--text-mid);
+      padding-left: 1.1rem; position: relative; line-height: 1.5;
+    }
+    .info-card ul li::before {
+      content: '→'; position: absolute; left: 0;
+      color: var(--blue); font-size: 0.75rem; top: 1px;
+    }
+
+    /* Recovery rings */
+    .recovery-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; }
+    .recovery-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 1.8rem 1.2rem;
+      text-align: center;
+      box-shadow: var(--shadow-sm);
+    }
+    .ring-wrap { position: relative; width: 80px; height: 80px; margin: 0 auto 1rem; }
+    .ring-wrap svg { transform: rotate(-90deg); }
+    .ring-wrap .ring-val {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Lora', serif; font-size: 1rem; font-weight: 600;
+    }
+    circle.track { fill: none; stroke: var(--border); stroke-width: 5; }
+    circle.fill  { fill: none; stroke-width: 5; stroke-linecap: round; }
+    .recovery-card h4 { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.4rem; }
+    .recovery-card p  { font-size: 0.8rem; color: var(--text-soft); line-height: 1.5; }
+
+    /* ── THANKS SECTION ── */
+    .thanks-section {
+      background: var(--blue);
+      padding: 4rem 2rem;
+      text-align: center;
+    }
+    .thanks-inner { max-width: 600px; margin: 0 auto; }
+    .thanks-icon {
+      width: 64px; height: 64px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 1.5rem;
+      font-size: 1.8rem;
+    }
+    .thanks-section h2 {
+      font-family: 'Lora', serif;
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      font-weight: 600;
+      color: white;
+      margin-bottom: 1rem;
+    }
+    .thanks-section p { color: rgba(255,255,255,0.8); font-size: 0.95rem; line-height: 1.7; }
+    .thanks-name {
+      display: inline-block;
+      margin-top: 1.5rem;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 100px;
+      padding: 0.5rem 1.5rem;
+      color: white;
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: 0.2px;
+    }
+    .thanks-role { display: block; font-size: 0.78rem; font-weight: 400; opacity: 0.75; margin-top: 0.2rem; }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--white);
+      border-top: 1px solid var(--border);
+      padding: 1.2rem 2rem;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-soft);
+    }
+
+    /* ── DIVIDERS ── */
+    .alt-bg { background: var(--white); }
+
+    /* ── ANIMATIONS ── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .hero { animation: fadeUp 0.5s ease both; }
+    .scanner-card { animation: fadeUp 0.5s 0.1s ease both; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 700px) {
+      .scanner-grid { grid-template-columns: 1fr; }
+      .stats-row { grid-template-columns: 1fr 1fr; }
+      .card-grid { grid-template-columns: 1fr; }
+      .recovery-grid { grid-template-columns: 1fr; }
+      nav ul { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2C8.5 2 6 5 6 8c0 4 6 14 6 14s6-10 6-14c0-3-2.5-6-6-6z"/></svg>
+      </div>
+      PneumoScan
+    </div>
+    <ul>
+      <li><a href="#scanner">Scanner</a></li>
+      <li><a href="#about">About</a></li>
+      <li><a href="#causes">Causes</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-chip">AI-Powered · ResNet50 · Chest X-Ray</div>
+  <h1>Chest X-Ray <span>Pneumonia</span><br>Detection System</h1>
+  <p>Upload a chest X-ray and our deep learning model will analyze it instantly. Trained on the public Kaggle Chest X-Ray Pneumonia dataset. Research prototype for educational use only.</p>
+</div>
+
+<!-- SCANNER -->
+<section id="scanner">
+  <div class="scanner-wrap">
+    <div class="scanner-card">
+      <div class="scanner-grid">
+
+        <!-- Left: Upload + Preview -->
+        <div>
+          <p class="panel-title" style="margin-bottom:0.75rem;">Upload X-Ray Image</p>
+          <div class="upload-zone" id="dropzone">
+            <input type="file" id="fileInput" accept="image/*"/>
+            <div class="upload-icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+              </svg>
+            </div>
+            <h3>Drop X-ray here</h3>
+            <p>or <span>click to browse</span> — JPG, PNG</p>
+          </div>
+
+          <div id="xray-preview-wrap" style="margin-top:1rem; display:none;">
+            <div class="xray-frame">
+              <img id="xray-img" src="" alt="X-ray"/>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Controls + Result -->
+        <div class="right-panel">
+          <div>
+            <p class="panel-title" style="margin-bottom:0.75rem;">Analysis Result</p>
+
+            <!-- Default placeholder -->
+            <div id="result-placeholder" style="background:var(--blue-light); border:1px solid var(--blue-mid); border-radius:12px; padding:2rem; text-align:center; color:var(--text-soft);">
+              <svg style="width:40px;height:40px;stroke:var(--blue-mid);fill:none;stroke-width:1.5;margin-bottom:0.75rem;" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35M11 8v6M8 11h6"/>
+              </svg>
+              <p style="font-size:0.85rem;">Upload an X-ray and click Analyze to see the diagnosis</p>
+            </div>
+
+            <!-- Result card -->
+            <div class="result-card" id="result-card">
+              <div class="result-label">Diagnosis</div>
+              <div class="result-diagnosis" id="result-text">—</div>
+              <div class="conf-wrap">
+                <div class="conf-top">
+                  <span>Confidence</span>
+                  <strong id="conf-val">—</strong>
+                </div>
+                <div class="conf-track"><div class="conf-bar" id="conf-bar"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Prob chips -->
+          <div class="prob-row" id="prob-row" style="display:none;">
+            <div class="prob-chip nm">
+              <div class="p-val" id="prob-normal">—</div>
+              <div class="p-lbl">Normal</div>
+            </div>
+            <div class="prob-chip pn">
+              <div class="p-val" id="prob-pneumonia">—</div>
+              <div class="p-lbl">Pneumonia</div>
+            </div>
+          </div>
+
+          <!-- Advice -->
+          <div class="advice-box" id="advice-box"></div>
+
+          <!-- Loader + error -->
+          <div class="loader" id="loader"><div class="spinner"></div> Analyzing with AI model…</div>
+          <div class="error-msg" id="error-msg"></div>
+
+          <!-- Button -->
+          <button class="btn-scan" id="scanBtn" onclick="runScan()">
+            <svg style="width:16px;height:16px;stroke:white;fill:none;stroke-width:2;" viewBox="0 0 24 24">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+            </svg>
+            Analyze X-Ray
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ABOUT -->
+<section class="info-section alt-bg" id="about">
+  <div class="section-inner">
+    <div class="section-eyebrow">Disease Overview</div>
+    <h2 class="section-heading">Understanding Pneumonia</h2>
+    <p class="section-sub">Pneumonia is a serious lung infection affecting millions worldwide. Chest X-ray imaging is one of the main tools clinicians use to help diagnose it.</p>
+
+  </div>
+</section>
+
+<!-- CAUSES -->
+<section class="info-section" id="causes">
+  <div class="section-inner">
+    <div class="section-eyebrow">Clinical Reference</div>
+    <h2 class="section-heading">Causes, Symptoms & Prevention</h2>
+    <p class="section-sub">A comprehensive overview of pneumonia's key clinical characteristics for educational reference.</p>
+
+    <div class="card-grid">
+      <div class="info-card">
+        <div class="info-card-head">
+          <div class="card-dot" style="background:#e03e52;"></div>
+          <h3>Common Causes</h3>
+        </div>
+        <ul>
+          <li>Streptococcus pneumoniae — most common bacterial cause</li>
+          <li>Influenza virus and Respiratory Syncytial Virus (RSV)</li>
+          <li>Haemophilus influenzae — especially in children</li>
+          <li>Mycoplasma pneumoniae — "walking pneumonia"</li>
+          <li>Aspiration of food, liquids or stomach acid</li>
+          <li>Fungal infections in immunocompromised patients</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <div class="info-card-head">
+          <div class="card-dot" style="background:#f0963a;"></div>
+          <h3>Risk Factors</h3>
+        </div>
+        <ul>
+          <li>Age extremes — infants and elderly over 65</li>
+          <li>Chronic conditions: COPD, asthma, heart disease</li>
+          <li>Smoking — damages lung's natural defenses</li>
+          <li>Immunocompromised states: HIV, cancer chemotherapy</li>
+          <li>Hospitalization and mechanical ventilation</li>
+          <li>Malnutrition and poor living conditions</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <div class="info-card-head">
+          <div class="card-dot" style="background:var(--blue);"></div>
+          <h3>Symptoms & Signs</h3>
+        </div>
+        <ul>
+          <li>High fever, chills and rigors</li>
+          <li>Productive cough — may produce rust-colored sputum</li>
+          <li>Chest pain that worsens with breathing</li>
+          <li>Shortness of breath and rapid breathing</li>
+          <li>Fatigue and loss of appetite</li>
+          <li>Low oxygen saturation (&lt;95%) on pulse oximetry</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <div class="info-card-head">
+          <div class="card-dot" style="background:var(--green);"></div>
+          <h3>Prevention</h3>
+        </div>
+        <ul>
+          <li>Pneumococcal vaccine — highly effective in all ages</li>
+          <li>Annual influenza vaccination</li>
+          <li>Regular handwashing with soap and water</li>
+          <li>Avoid smoking and secondhand smoke exposure</li>
+          <li>Hib vaccine for children under 5 years</li>
+          <li>Proper ventilation in living and work spaces</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- THANKS -->
+<section class="thanks-section">
+  <div class="thanks-inner">
+    <div class="thanks-icon">🎓</div>
+    <h2>Special Thanks</h2>
+    <p>
+      This project was developed as a Computer Vision course project. 
+      Deep gratitude to my instructor for the guidance, knowledge, and 
+      support throughout this learning journey.
+    </p>
+    <div class="thanks-name">
+      Dr. / Eng. Mohamed Zorkany
+      <span class="thanks-role">Instructor — Computer Vision Course</span>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  PneumoScan · CV Project · Model: ResNet50 (ImageNet transfer learning) trained on the Kaggle Chest X-Ray Pneumonia dataset · Built with FastAPI &amp; TensorFlow<br/>Research prototype - not a medical device and not for clinical use.
+</footer>
+
+<script>
+  const dropzone  = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  let selectedFile = null;
+
+  dropzone.addEventListener('dragover',  e => { e.preventDefault(); dropzone.classList.add('drag'); });
+  dropzone.addEventListener('dragleave', ()  => dropzone.classList.remove('drag'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault(); dropzone.classList.remove('drag');
+    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) handleFile(fileInput.files[0]);
+  });
+
+  function handleFile(file) {
+    selectedFile = file;
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('xray-img').src = e.target.result;
+      document.getElementById('xray-preview-wrap').style.display = 'block';
+      resetResult();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function resetResult() {
+    document.getElementById('result-placeholder').style.display = 'block';
+    document.getElementById('result-card').className   = 'result-card';
+    document.getElementById('prob-row').style.display  = 'none';
+    document.getElementById('advice-box').className    = 'advice-box';
+    document.getElementById('error-msg').className     = 'error-msg';
+    document.getElementById('conf-bar').style.width    = '0%';
+  }
+
+  async function runScan() {
+    if (!selectedFile) { showError('Please upload a chest X-ray image first.'); return; }
+
+    const btn    = document.getElementById('scanBtn');
+    const loader = document.getElementById('loader');
+    btn.disabled = true;
+    loader.classList.add('show');
+    document.getElementById('error-msg').className = 'error-msg';
+    document.getElementById('result-card').className = 'result-card';
+    document.getElementById('result-placeholder').style.display = 'none';
+
+    const form = new FormData();
+    form.append('file', selectedFile);
+
+    try {
+      const res  = await fetch('/predict', { method: 'POST', body: form });
+      const data = await res.json();
+      loader.classList.remove('show');
+      btn.disabled = false;
+      if (data.status === 'error' || data.error) { showError(data.error || 'Prediction failed.'); return; }
+      showResult(data);
+    } catch(err) {
+      loader.classList.remove('show');
+      btn.disabled = false;
+      showError('Network error — is the server running?');
+    }
+  }
+
+  function showResult(data) {
+    const card   = document.getElementById('result-card');
+    const cls    = data.is_pneumonia ? 'pneumonia' : 'normal';
+
+    document.getElementById('result-placeholder').style.display = 'none';
+    card.className = 'result-card show ' + cls;
+    document.getElementById('result-text').textContent = data.prediction;
+    document.getElementById('conf-val').textContent    = data.confidence + '%';
+    setTimeout(() => { document.getElementById('conf-bar').style.width = data.confidence + '%'; }, 80);
+
+    document.getElementById('prob-normal').textContent    = data.prob_normal    + '%';
+    document.getElementById('prob-pneumonia').textContent = data.prob_pneumonia + '%';
+    document.getElementById('prob-row').style.display     = 'grid';
+
+    const advice = document.getElementById('advice-box');
+    advice.innerHTML = data.is_pneumonia
+      ? '⚠️ Signs consistent with <strong>pneumonia</strong> detected. Please consult a qualified physician immediately for clinical evaluation.'
+      : '✅ X-ray appears <strong>normal</strong>. No significant signs of pneumonia detected. Always confirm with a licensed medical professional.';
+    advice.className = 'advice-box show ' + cls;
+  }
+
+  function showError(msg) {
+    const e = document.getElementById('error-msg');
+    e.textContent = '❌ ' + msg;
+    e.className   = 'error-msg show';
+    document.getElementById('result-placeholder').style.display = 'block';
+  }
+</script>
+</body>
+</html>

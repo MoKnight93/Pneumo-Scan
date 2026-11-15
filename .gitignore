@@ -1,0 +1,20 @@
+# models / data (too large for GitHub)
+*.keras
+*.h5
+*.pth
+*.pkl
+data/
+chest_xray/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# os / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
